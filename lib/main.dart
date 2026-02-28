@@ -8,6 +8,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:sqflite/sqflite.dart';
 import 'package:path/path.dart' as p;
+import 'package:flutter_map/flutter_map.dart';
+import 'package:latlong2/latlong.dart';
 
 // Transición suave con fade para todas las pantallas
 PageRouteBuilder<T> _fadeRoute<T>(Widget page) {
@@ -161,7 +163,7 @@ final List<Map<String, String>> restaurantes = [
     'nombre': 'Ресторан Los Amigos',
     'foto': 'assets/images/rest2.webp',
     'telefono': '+7 (391) 252-73-61',
-    'direccion': 'пр. Мира, 10, Красноярск',
+    'direccion': 'ул. Ленина, 7, Красноярск',
     'horario': '11:00 – 00:00 (Пн–Вс)',
     'descripcion':
         'Семейный ресторан с тёплой атмосферой и традиционными блюдами мексиканской и испанской кухни. Здесь каждый гость чувствует себя как дома.',
@@ -170,12 +172,19 @@ final List<Map<String, String>> restaurantes = [
     'nombre': 'Ресторан Picante!',
     'foto': 'assets/images/rest3.webp',
     'telefono': '+7 (391) 252-73-62',
-    'direccion': 'пр. Мира, 10, Красноярск',
+    'direccion': 'ул. Карла Маркса, 49, Красноярск',
     'horario': '12:00 – 01:00 (Пн–Вс)',
     'descripcion':
         'Острые и пикантные блюда со всего мира. Идеально для любителей ярких вкусов и необычных сочетаний. Каждое блюдо — это маленькое приключение.',
   },
 ];
+
+// Coordenadas reales en Красноярск para cada restaurante
+final Map<String, LatLng> restaurantCoords = {
+  'Ресторан Дон Лучо': const LatLng(56.0159, 92.8684),
+  'Ресторан Los Amigos': const LatLng(56.0100, 92.8531),
+  'Ресторан Picante!': const LatLng(56.0230, 92.8750),
+};
 
 final Map<String, String> menuImages = {
   'Ресторан Дон Лучо': 'assets/images/menu1.jpg',
@@ -875,6 +884,126 @@ class _MainScreenState extends State<MainScreen> {
   }
 }
 
+// ─── WEATHER CARD ─────────────────────────────────────────────────────────────
+class _WeatherCard extends StatefulWidget {
+  const _WeatherCard();
+  @override
+  State<_WeatherCard> createState() => _WeatherCardState();
+}
+
+class _WeatherCardState extends State<_WeatherCard> {
+  double? _temp;
+  int? _code;
+  bool _loading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchWeather();
+  }
+
+  Future<void> _fetchWeather() async {
+    try {
+      final resp = await http.get(Uri.parse(
+        'https://api.open-meteo.com/v1/forecast?latitude=56.0184&longitude=92.8672&current_weather=true',
+      ));
+      if (resp.statusCode == 200) {
+        final data = jsonDecode(resp.body);
+        final cw = data['current_weather'];
+        setState(() {
+          _temp = (cw['temperature'] as num).toDouble();
+          _code = cw['weathercode'] as int;
+          _loading = false;
+        });
+      } else {
+        setState(() => _loading = false);
+      }
+    } catch (_) {
+      setState(() => _loading = false);
+    }
+  }
+
+  String _icon(int code) {
+    if (code == 0) return '☀️';
+    if (code <= 3) return '⛅';
+    if (code <= 48) return '🌫️';
+    if (code <= 67) return '🌧️';
+    if (code <= 77) return '❄️';
+    if (code <= 82) return '🌦️';
+    if (code <= 86) return '🌨️';
+    return '⛈️';
+  }
+
+  String _desc(int code) {
+    if (code == 0) return 'Ясно';
+    if (code <= 3) return 'Облачно';
+    if (code <= 48) return 'Туман';
+    if (code <= 67) return 'Дождь';
+    if (code <= 77) return 'Снег';
+    if (code <= 82) return 'Ливень';
+    if (code <= 86) return 'Снегопад';
+    return 'Гроза';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 20),
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          colors: [Color(0xFF0B6E4F), Color(0xFF1A9E72)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFF0B6E4F).withValues(alpha: 0.3),
+            blurRadius: 8,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: _loading
+          ? const SizedBox(
+              height: 48,
+              child: Center(
+                child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
+              ),
+            )
+          : Row(
+              children: [
+                Text(
+                  _code != null ? _icon(_code!) : '🌡️',
+                  style: const TextStyle(fontSize: 36),
+                ),
+                const SizedBox(width: 16),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Красноярск',
+                      style: GoogleFonts.poppins(color: Colors.white70, fontSize: 13),
+                    ),
+                    Text(
+                      _temp != null
+                          ? '${_temp!.toStringAsFixed(0)}°C  ${_code != null ? _desc(_code!) : ''}'
+                          : 'Нет данных',
+                      style: GoogleFonts.poppins(
+                        color: Colors.white,
+                        fontSize: 22,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+    );
+  }
+}
+
 // ─── HOME SCREEN ──────────────────────────────────────────────────────────────
 class HomeScreen extends StatelessWidget {
   const HomeScreen({super.key});
@@ -928,6 +1057,7 @@ class HomeScreen extends StatelessWidget {
               style: TextStyle(fontSize: 15, color: Colors.grey[600]),
             ),
             const SizedBox(height: 24),
+            const _WeatherCard(),
             ...restaurantes.map((rest) {
               return GestureDetector(
                 onTap: () {
@@ -1168,6 +1298,40 @@ class RestaurantDetailScreen extends StatelessWidget {
                   ),
                   const Divider(color: Colors.grey, thickness: 1, height: 32),
                   _buildInfoRow(Icons.access_time, restaurant['horario']!),
+                  const SizedBox(height: 20),
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(14),
+                    child: SizedBox(
+                      height: 220,
+                      child: FlutterMap(
+                        options: MapOptions(
+                          initialCenter: restaurantCoords[restaurant['nombre']] ??
+                              const LatLng(56.0184, 92.8672),
+                          initialZoom: 15,
+                        ),
+                        children: [
+                          TileLayer(
+                            urlTemplate:
+                                'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                            userAgentPackageName: 'com.example.restobook',
+                          ),
+                          MarkerLayer(
+                            markers: [
+                              Marker(
+                                point: restaurantCoords[restaurant['nombre']] ??
+                                    const LatLng(56.0184, 92.8672),
+                                child: const Icon(
+                                  Icons.location_pin,
+                                  color: Color(0xFF0B6E4F),
+                                  size: 40,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
                 ],
               ),
             ),
