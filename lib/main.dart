@@ -1320,10 +1320,37 @@ class RestaurantDetailScreen extends StatelessWidget {
                               Marker(
                                 point: restaurantCoords[restaurant['nombre']] ??
                                     const LatLng(56.0184, 92.8672),
-                                child: const Icon(
-                                  Icons.location_pin,
-                                  color: Color(0xFF0B6E4F),
-                                  size: 40,
+                                height: 70,
+                                child: Column(
+                                  children: [
+                                    const Icon(
+                                      Icons.location_pin,
+                                      color: Color(0xFF0B6E4F),
+                                      size: 36,
+                                    ),
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(
+                                          horizontal: 6, vertical: 2),
+                                      decoration: BoxDecoration(
+                                        color: Colors.white,
+                                        borderRadius: BorderRadius.circular(6),
+                                        boxShadow: [
+                                          BoxShadow(
+                                            color: Colors.black.withValues(alpha: 0.2),
+                                            blurRadius: 4,
+                                          ),
+                                        ],
+                                      ),
+                                      child: Text(
+                                        restaurant['nombre']!,
+                                        style: const TextStyle(
+                                          fontSize: 10,
+                                          fontWeight: FontWeight.w600,
+                                          color: Color(0xFF0B6E4F),
+                                        ),
+                                      ),
+                                    ),
+                                  ],
                                 ),
                               ),
                             ],
