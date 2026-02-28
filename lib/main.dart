@@ -837,13 +837,22 @@ class RestaurantDetailScreen extends StatelessWidget {
   }
 
   Future<void> _openMap() async {
-    final Uri url = Uri.parse(
-      'https://www.google.com/maps/search/?api=1&query=${Uri.encodeComponent(restaurant['direccion']!)}',
+    final direccion = Uri.encodeComponent(restaurant['direccion']!);
+    // geo: abre la app de mapas predeterminada del usuario (Google Maps, Yandex, etc.)
+    final geoUri = Uri.parse('geo:0,0?q=$direccion');
+    // Fallback: Google Maps en navegador
+    final webUri = Uri.parse(
+      'https://www.google.com/maps/search/?api=1&query=$direccion',
     );
     try {
-      await launchUrl(url, mode: LaunchMode.externalApplication);
-    } catch (e) {
-      debugPrint('Error abriendo mapa: $e');
+      final ok = await launchUrl(geoUri, mode: LaunchMode.externalApplication);
+      if (!ok) await launchUrl(webUri, mode: LaunchMode.externalApplication);
+    } catch (_) {
+      try {
+        await launchUrl(webUri, mode: LaunchMode.externalApplication);
+      } catch (e) {
+        debugPrint('Error abriendo mapa: $e');
+      }
     }
   }
 
