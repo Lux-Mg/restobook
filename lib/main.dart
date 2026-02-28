@@ -1320,8 +1320,9 @@ class RestaurantDetailScreen extends StatelessWidget {
                               Marker(
                                 point: restaurantCoords[restaurant['nombre']] ??
                                     const LatLng(56.0184, 92.8672),
-                                height: 70,
+                                height: 72,
                                 child: Column(
+                                  mainAxisSize: MainAxisSize.min,
                                   children: [
                                     const Icon(
                                       Icons.location_pin,
@@ -1342,7 +1343,8 @@ class RestaurantDetailScreen extends StatelessWidget {
                                         ],
                                       ),
                                       child: Text(
-                                        restaurant['nombre']!,
+                                        restaurant['nombre']!
+                                            .replaceFirst('Ресторан ', ''),
                                         style: const TextStyle(
                                           fontSize: 10,
                                           fontWeight: FontWeight.w600,
