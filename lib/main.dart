@@ -1320,6 +1320,7 @@ class RestaurantDetailScreen extends StatelessWidget {
                               Marker(
                                 point: restaurantCoords[restaurant['nombre']] ??
                                     const LatLng(56.0184, 92.8672),
+                                width: 100,
                                 height: 72,
                                 child: Column(
                                   mainAxisSize: MainAxisSize.min,
