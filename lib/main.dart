@@ -38,8 +38,8 @@ class MyApp extends StatelessWidget {
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(
-          seedColor: const Color(0xFFC62828),
-          primary: const Color(0xFFC62828),
+          seedColor: const Color(0xFF0B6E4F),
+          primary: const Color(0xFF0B6E4F),
           surface: Colors.white,
         ),
         scaffoldBackgroundColor: const Color(0xFFF7F7F7),
@@ -50,7 +50,7 @@ class MyApp extends StatelessWidget {
           titleMedium: GoogleFonts.poppins(fontSize: 16, fontWeight: FontWeight.w600, color: const Color(0xFF1A1A1A)),
         ),
         appBarTheme: AppBarTheme(
-          backgroundColor: const Color(0xFFC62828),
+          backgroundColor: const Color(0xFF0B6E4F),
           foregroundColor: Colors.white,
           elevation: 0,
           titleTextStyle: GoogleFonts.poppins(
@@ -61,7 +61,7 @@ class MyApp extends StatelessWidget {
         ),
         elevatedButtonTheme: ElevatedButtonThemeData(
           style: ElevatedButton.styleFrom(
-            backgroundColor: const Color(0xFFC62828),
+            backgroundColor: const Color(0xFF0B6E4F),
             foregroundColor: Colors.white,
             elevation: 2,
             shape: RoundedRectangleBorder(
@@ -84,7 +84,7 @@ class MyApp extends StatelessWidget {
           ),
           focusedBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(12),
-            borderSide: const BorderSide(color: Color(0xFFC62828), width: 2),
+            borderSide: const BorderSide(color: Color(0xFF0B6E4F), width: 2),
           ),
         ),
         cardTheme: CardThemeData(
@@ -96,7 +96,7 @@ class MyApp extends StatelessWidget {
         ),
         bottomNavigationBarTheme: BottomNavigationBarThemeData(
           backgroundColor: Colors.white,
-          selectedItemColor: const Color(0xFFC62828),
+          selectedItemColor: const Color(0xFF0B6E4F),
           unselectedItemColor: Colors.grey[500],
           elevation: 12,
           selectedLabelStyle: GoogleFonts.poppins(fontSize: 11, fontWeight: FontWeight.w600),
@@ -305,7 +305,7 @@ class LoginScreen extends StatelessWidget {
             child: Container(
               width: double.infinity,
               decoration: const BoxDecoration(
-                color: Color(0xFFC62828),
+                color: Color(0xFF0B6E4F),
                 borderRadius: BorderRadius.only(
                   bottomLeft: Radius.circular(40),
                   bottomRight: Radius.circular(40),
@@ -539,17 +539,20 @@ class _OtpScreenState extends State<OtpScreen> {
   }
 
   Future<void> _pedirNuevoCodigo() async {
-    // Bloquear clipboard para evitar el bucle de auto-pegado
     _ignorarClipboard = true;
     _limpiarCampos();
-    // Abrir Telegram para que el bot envíe un código nuevo
-    try {
-      await launchUrl(
-        Uri.parse('https://t.me/RestobkBot?start=login'),
-        mode: LaunchMode.externalApplication,
-      );
-    } catch (_) {}
-    // Después de 3 segundos volver a permitir el clipboard
+    // Intentar abrir Telegram nativo primero, luego fallback a web
+    final urls = [
+      Uri.parse('tg://resolve?domain=RestobkBot&start=login'),
+      Uri.parse('tg://resolve?domain=RestobkBot'),
+      Uri.parse('https://t.me/RestobkBot?start=login'),
+    ];
+    for (final url in urls) {
+      try {
+        final ok = await launchUrl(url, mode: LaunchMode.externalApplication);
+        if (ok) break;
+      } catch (_) {}
+    }
     await Future.delayed(const Duration(seconds: 3));
     _ignorarClipboard = false;
     if (mounted) _focusNodes[0].requestFocus();
@@ -560,7 +563,7 @@ class _OtpScreenState extends State<OtpScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Подтверждение'),
-        backgroundColor: const Color(0xFFC62828),
+        backgroundColor: const Color(0xFF0B6E4F),
         foregroundColor: Colors.white,
       ),
       body: SingleChildScrollView(
@@ -600,6 +603,7 @@ class _OtpScreenState extends State<OtpScreen> {
                     ),
                     decoration: InputDecoration(
                       counterText: '',
+                      contentPadding: EdgeInsets.zero,
                       filled: true,
                       fillColor: _errorMessage != null
                           ? Colors.red.shade50
@@ -634,7 +638,7 @@ class _OtpScreenState extends State<OtpScreen> {
               ),
             const SizedBox(height: 32),
             if (_isLoading)
-              const CircularProgressIndicator(color: Colors.red)
+              const CircularProgressIndicator(color: Color(0xFF0B6E4F))
             else
               SizedBox(
                 width: double.infinity,
@@ -642,7 +646,7 @@ class _OtpScreenState extends State<OtpScreen> {
                 child: ElevatedButton(
                   onPressed: _verificarCodigo,
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFFC62828),
+                    backgroundColor: const Color(0xFF0B6E4F),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(12),
                     ),
@@ -691,7 +695,7 @@ class _MainScreenState extends State<MainScreen> {
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: _currentIndex,
         onTap: (index) => setState(() => _currentIndex = index),
-        selectedItemColor: const Color(0xFFC62828),
+        selectedItemColor: const Color(0xFF0B6E4F),
         unselectedItemColor: Colors.grey,
         type: BottomNavigationBarType.fixed,
         items: const [
@@ -848,7 +852,7 @@ class RestaurantDetailScreen extends StatelessWidget {
     return Scaffold(
       appBar: AppBar(
         title: Text(restaurant['nombre']!),
-        backgroundColor: const Color(0xFFC62828),
+        backgroundColor: const Color(0xFF0B6E4F),
         foregroundColor: Colors.white,
       ),
       body: SingleChildScrollView(
@@ -914,7 +918,7 @@ class RestaurantDetailScreen extends StatelessWidget {
                                 fontSize: 15, color: Colors.white),
                           ),
                           style: ElevatedButton.styleFrom(
-                            backgroundColor: const Color(0xFFC62828),
+                            backgroundColor: const Color(0xFF0B6E4F),
                             padding: const EdgeInsets.symmetric(vertical: 14),
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(12),
@@ -935,14 +939,14 @@ class RestaurantDetailScreen extends StatelessWidget {
                             );
                           },
                           icon: const Icon(Icons.restaurant_menu,
-                              color: Colors.red),
+                              color: Color(0xFF0B6E4F)),
                           label: const Text(
                             'Меню',
-                            style: TextStyle(fontSize: 15, color: Colors.red),
+                            style: TextStyle(fontSize: 15, color: Color(0xFF0B6E4F)),
                           ),
                           style: OutlinedButton.styleFrom(
                             padding: const EdgeInsets.symmetric(vertical: 14),
-                            side: const BorderSide(color: Colors.red),
+                            side: const BorderSide(color: Color(0xFF0B6E4F)),
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(12),
                             ),
@@ -1115,7 +1119,7 @@ class _NuevaReservaScreenState extends State<NuevaReservaScreen> {
           ElevatedButton(
             onPressed: () => Navigator.pop(context, true),
             style:
-                ElevatedButton.styleFrom(backgroundColor: const Color(0xFFC62828)),
+                ElevatedButton.styleFrom(backgroundColor: const Color(0xFF0B6E4F)),
             child: const Text(
               'Подтвердить',
               style: TextStyle(color: Colors.white),
@@ -1176,7 +1180,7 @@ class _NuevaReservaScreenState extends State<NuevaReservaScreen> {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Icon(icon, size: 18, color: Colors.red),
+        Icon(icon, size: 18, color: const Color(0xFF0B6E4F)),
         const SizedBox(width: 8),
         Expanded(child: Text(text, style: const TextStyle(fontSize: 15))),
       ],
@@ -1188,7 +1192,7 @@ class _NuevaReservaScreenState extends State<NuevaReservaScreen> {
     return Scaffold(
       appBar: AppBar(
         title: Text('Бронирование в ${widget.restaurante}'),
-        backgroundColor: const Color(0xFFC62828),
+        backgroundColor: const Color(0xFF0B6E4F),
         foregroundColor: Colors.white,
       ),
       body: SingleChildScrollView(
@@ -1270,7 +1274,7 @@ class _NuevaReservaScreenState extends State<NuevaReservaScreen> {
               children: [
                 IconButton(
                   icon: const Icon(Icons.remove_circle_outline),
-                  color: Colors.red,
+                  color: const Color(0xFF0B6E4F),
                   onPressed: () {
                     if (_personas > 1) setState(() => _personas--);
                   },
@@ -1285,7 +1289,7 @@ class _NuevaReservaScreenState extends State<NuevaReservaScreen> {
                 ),
                 IconButton(
                   icon: const Icon(Icons.add_circle_outline),
-                  color: Colors.red,
+                  color: const Color(0xFF0B6E4F),
                   onPressed: () => setState(() => _personas++),
                 ),
               ],
@@ -1305,7 +1309,7 @@ class _NuevaReservaScreenState extends State<NuevaReservaScreen> {
               ],
               decoration: InputDecoration(
                 hintText: '+7 XXX XXX XX XX',
-                prefixIcon: const Icon(Icons.phone, color: Colors.red),
+                prefixIcon: const Icon(Icons.phone, color: Color(0xFF0B6E4F)),
                 border: const OutlineInputBorder(),
                 contentPadding: const EdgeInsets.all(12),
                 hintStyle: TextStyle(color: Colors.grey[400]),
@@ -1334,7 +1338,7 @@ class _NuevaReservaScreenState extends State<NuevaReservaScreen> {
               child: ElevatedButton(
                 onPressed: _confirmarReserva,
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFFC62828),
+                  backgroundColor: const Color(0xFF0B6E4F),
                   padding: const EdgeInsets.symmetric(vertical: 16),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(12),
@@ -1367,7 +1371,7 @@ class MenuScreen extends StatelessWidget {
     return Scaffold(
       appBar: AppBar(
         title: Text('Меню - $restaurante'),
-        backgroundColor: const Color(0xFFC62828),
+        backgroundColor: const Color(0xFF0B6E4F),
         foregroundColor: Colors.white,
       ),
       body: InteractiveViewer(
@@ -1487,7 +1491,7 @@ class _BookingsScreenState extends State<BookingsScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Мои бронирования'),
-        backgroundColor: const Color(0xFFC62828),
+        backgroundColor: const Color(0xFF0B6E4F),
         foregroundColor: Colors.white,
         actions: [
           _actualizando
@@ -1527,7 +1531,7 @@ class _BookingsScreenState extends State<BookingsScreen> {
                     child: Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Icon(Icons.book_online, color: Colors.red, size: 36),
+                        Icon(Icons.book_online, color: const Color(0xFF0B6E4F), size: 36),
                         const SizedBox(width: 12),
                         Expanded(
                           child: Column(
@@ -1604,7 +1608,7 @@ class ProfileScreen extends StatelessWidget {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Профиль'),
-        backgroundColor: const Color(0xFFC62828),
+        backgroundColor: const Color(0xFF0B6E4F),
         foregroundColor: Colors.white,
       ),
       body: SingleChildScrollView(
