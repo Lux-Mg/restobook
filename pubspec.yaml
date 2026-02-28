@@ -37,6 +37,7 @@ dependencies:
   webview_flutter: ^4.9.0     # ← agrega esto para abrir Telegram Web si es necesario
   http: ^1.2.1
   shared_preferences: ^2.2.2
+  google_fonts: ^6.2.1
 
   # The "flutter_lints" package below contains a set of recommended lints to
   # encourage good coding practices. The lint set provided by the package is

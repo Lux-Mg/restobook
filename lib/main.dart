@@ -5,6 +5,21 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:google_fonts/google_fonts.dart';
+
+// Transición suave con fade para todas las pantallas
+PageRouteBuilder<T> _fadeRoute<T>(Widget page) {
+  return PageRouteBuilder<T>(
+    pageBuilder: (context, animation, _) => page,
+    transitionsBuilder: (context, animation, _, child) {
+      return FadeTransition(
+        opacity: CurvedAnimation(parent: animation, curve: Curves.easeIn),
+        child: child,
+      );
+    },
+    transitionDuration: const Duration(milliseconds: 220),
+  );
+}
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -21,7 +36,73 @@ class MyApp extends StatelessWidget {
     return MaterialApp(
       title: 'RestoBook',
       debugShowCheckedModeBanner: false,
-      theme: ThemeData(primarySwatch: Colors.red, fontFamily: 'Roboto'),
+      theme: ThemeData(
+        colorScheme: ColorScheme.fromSeed(
+          seedColor: const Color(0xFFC62828),
+          primary: const Color(0xFFC62828),
+          surface: Colors.white,
+        ),
+        scaffoldBackgroundColor: const Color(0xFFF7F7F7),
+        textTheme: GoogleFonts.poppinsTextTheme().copyWith(
+          bodyMedium: GoogleFonts.poppins(fontSize: 14, color: const Color(0xFF2D2D2D)),
+          bodyLarge: GoogleFonts.poppins(fontSize: 16, color: const Color(0xFF2D2D2D)),
+          titleLarge: GoogleFonts.poppins(fontSize: 20, fontWeight: FontWeight.w700, color: const Color(0xFF1A1A1A)),
+          titleMedium: GoogleFonts.poppins(fontSize: 16, fontWeight: FontWeight.w600, color: const Color(0xFF1A1A1A)),
+        ),
+        appBarTheme: AppBarTheme(
+          backgroundColor: const Color(0xFFC62828),
+          foregroundColor: Colors.white,
+          elevation: 0,
+          titleTextStyle: GoogleFonts.poppins(
+            fontSize: 20,
+            fontWeight: FontWeight.w600,
+            color: Colors.white,
+          ),
+        ),
+        elevatedButtonTheme: ElevatedButtonThemeData(
+          style: ElevatedButton.styleFrom(
+            backgroundColor: const Color(0xFFC62828),
+            foregroundColor: Colors.white,
+            elevation: 2,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(14),
+            ),
+            padding: const EdgeInsets.symmetric(vertical: 14),
+          ),
+        ),
+        inputDecorationTheme: InputDecorationTheme(
+          filled: true,
+          fillColor: Colors.white,
+          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12),
+            borderSide: const BorderSide(color: Color(0xFFDDDDDD)),
+          ),
+          enabledBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12),
+            borderSide: const BorderSide(color: Color(0xFFDDDDDD)),
+          ),
+          focusedBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12),
+            borderSide: const BorderSide(color: Color(0xFFC62828), width: 2),
+          ),
+        ),
+        cardTheme: CardThemeData(
+          elevation: 2,
+          color: Colors.white,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+        ),
+        bottomNavigationBarTheme: BottomNavigationBarThemeData(
+          backgroundColor: Colors.white,
+          selectedItemColor: const Color(0xFFC62828),
+          unselectedItemColor: Colors.grey[500],
+          elevation: 12,
+          selectedLabelStyle: GoogleFonts.poppins(fontSize: 11, fontWeight: FontWeight.w600),
+          unselectedLabelStyle: GoogleFonts.poppins(fontSize: 11),
+        ),
+      ),
       localizationsDelegates: const [
         GlobalMaterialLocalizations.delegate,
         GlobalWidgetsLocalizations.delegate,
@@ -73,6 +154,8 @@ final List<Map<String, String>> restaurantes = [
     'telefono': '+7 (391) 252-73-60',
     'direccion': 'пр. Мира, 10, Красноярск',
     'horario': '10:00 – 23:00 (Пн–Вс)',
+    'descripcion':
+        'Изысканная латиноамериканская кухня в сердце города. Уютная атмосфера, живая музыка и авторские коктейли — идеальное место для особых вечеров.',
   },
   {
     'nombre': 'Ресторан Los Amigos',
@@ -80,6 +163,8 @@ final List<Map<String, String>> restaurantes = [
     'telefono': '+7 (391) 252-73-61',
     'direccion': 'пр. Мира, 10, Красноярск',
     'horario': '11:00 – 00:00 (Пн–Вс)',
+    'descripcion':
+        'Семейный ресторан с тёплой атмосферой и традиционными блюдами мексиканской и испанской кухни. Здесь каждый гость чувствует себя как дома.',
   },
   {
     'nombre': 'Ресторан Picante!',
@@ -87,6 +172,8 @@ final List<Map<String, String>> restaurantes = [
     'telefono': '+7 (391) 252-73-62',
     'direccion': 'пр. Мира, 10, Красноярск',
     'horario': '12:00 – 01:00 (Пн–Вс)',
+    'descripcion':
+        'Острые и пикантные блюда со всего мира. Идеально для любителей ярких вкусов и необычных сочетаний. Каждое блюдо — это маленькое приключение.',
   },
 ];
 
@@ -101,31 +188,47 @@ class Reserva {
   final String restaurante;
   final String fecha;
   final String hora;
+  final String horaFin;
   final int personas;
-  final String estado;
+  final String comentario;
+  final String telefono;
+  String estado;
+  String? id; // ID del backend para verificar estado
 
   Reserva({
     required this.restaurante,
     required this.fecha,
     required this.hora,
+    required this.horaFin,
     required this.personas,
+    this.comentario = '',
+    this.telefono = '',
     this.estado = 'Ожидает подтверждения',
+    this.id,
   });
 
   Map<String, dynamic> toJson() => {
         'restaurante': restaurante,
         'fecha': fecha,
         'hora': hora,
+        'horaFin': horaFin,
         'personas': personas,
+        'comentario': comentario,
+        'telefono': telefono,
         'estado': estado,
+        'id': id,
       };
 
   factory Reserva.fromJson(Map<String, dynamic> json) => Reserva(
         restaurante: json['restaurante'],
         fecha: json['fecha'],
         hora: json['hora'],
+        horaFin: json['horaFin'] ?? '',
         personas: json['personas'],
-        estado: json['estado'],
+        comentario: json['comentario'] ?? '',
+        telefono: json['telefono'] ?? '',
+        estado: json['estado'] ?? 'Ожидает подтверждения',
+        id: json['id'],
       );
 }
 
@@ -168,7 +271,7 @@ class LoginScreen extends StatelessWidget {
           if (context.mounted) {
             Navigator.push(
               context,
-              MaterialPageRoute(builder: (context) => const OtpScreen()),
+              _fadeRoute(const OtpScreen()),
             );
           }
           return;
@@ -193,62 +296,113 @@ class LoginScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: Center(
-        child: Padding(
-          padding: const EdgeInsets.all(32.0),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              const Text(
-                'Добро пожаловать в RestoBook!',
-                style: TextStyle(fontSize: 32, fontWeight: FontWeight.bold),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 40),
-              const Text(
-                'Войдите, чтобы продолжить',
-                style: TextStyle(fontSize: 18, color: Colors.grey),
-              ),
-              const SizedBox(height: 60),
-              SizedBox(
-                width: double.infinity,
-                height: 60,
-                child: ElevatedButton.icon(
-                  onPressed: () => _loginWithTelegram(context),
-                  icon: const Icon(
-                    Icons.telegram,
-                    size: 32,
-                    color: Colors.white,
-                  ),
-                  label: const Text(
-                    'Войти через Telegram',
-                    style: TextStyle(fontSize: 20, color: Colors.white),
-                  ),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF0088CC),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                  ),
+      backgroundColor: const Color(0xFFF7F7F7),
+      body: Column(
+        children: [
+          // ── Header rojo con logo ──────────────────────────────
+          Expanded(
+            flex: 45,
+            child: Container(
+              width: double.infinity,
+              decoration: const BoxDecoration(
+                color: Color(0xFFC62828),
+                borderRadius: BorderRadius.only(
+                  bottomLeft: Radius.circular(40),
+                  bottomRight: Radius.circular(40),
                 ),
               ),
-              const SizedBox(height: 20),
-              TextButton(
-                onPressed: () {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('Вход по email скоро будет доступен'),
+              child: SafeArea(
+                bottom: false,
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(18),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: 0.15),
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(Icons.restaurant_menu,
+                          size: 56, color: Colors.white),
                     ),
-                  );
-                },
-                child: const Text(
-                  'Войти по email и паролю',
-                  style: TextStyle(fontSize: 16),
+                    const SizedBox(height: 18),
+                    Text(
+                      'RestoBook',
+                      style: GoogleFonts.poppins(
+                        fontSize: 38,
+                        fontWeight: FontWeight.w700,
+                        color: Colors.white,
+                        letterSpacing: 1,
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      'Бронирование столиков',
+                      style: GoogleFonts.poppins(
+                        fontSize: 15,
+                        color: Colors.white.withValues(alpha: 0.8),
+                      ),
+                    ),
+                  ],
                 ),
               ),
-            ],
+            ),
           ),
-        ),
+          // ── Área de login ─────────────────────────────────────
+          Expanded(
+            flex: 55,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 32),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Добро пожаловать!',
+                    style: GoogleFonts.poppins(
+                      fontSize: 26,
+                      fontWeight: FontWeight.w700,
+                      color: const Color(0xFF1A1A1A),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'Войдите, чтобы забронировать\nстолик в любимом ресторане',
+                    style: GoogleFonts.poppins(
+                      fontSize: 14,
+                      color: Colors.grey[600],
+                      height: 1.5,
+                    ),
+                  ),
+                  const SizedBox(height: 40),
+                  SizedBox(
+                    width: double.infinity,
+                    height: 56,
+                    child: ElevatedButton.icon(
+                      onPressed: () => _loginWithTelegram(context),
+                      icon: const Icon(Icons.telegram, size: 26, color: Colors.white),
+                      label: Text(
+                        'Войти через Telegram',
+                        style: GoogleFonts.poppins(
+                          fontSize: 17,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.white,
+                        ),
+                      ),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF0088CC),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(16),
+                        ),
+                        elevation: 3,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -270,6 +424,7 @@ class _OtpScreenState extends State<OtpScreen> {
   final List<FocusNode> _focusNodes = List.generate(6, (_) => FocusNode());
   bool _isLoading = false;
   String? _errorMessage;
+  bool _ignorarClipboard = false;
 
   static const String botApiUrl = 'https://web-production-86f86.up.railway.app/verify';
 
@@ -277,7 +432,7 @@ class _OtpScreenState extends State<OtpScreen> {
   void initState() {
     super.initState();
     _focusNodes[0].addListener(() {
-      if (_focusNodes[0].hasFocus) _checkClipboard();
+      if (_focusNodes[0].hasFocus && !_ignorarClipboard) _checkClipboard();
     });
   }
 
@@ -358,7 +513,7 @@ class _OtpScreenState extends State<OtpScreen> {
 
           Navigator.pushAndRemoveUntil(
             context,
-            MaterialPageRoute(builder: (context) => const MainScreen()),
+            _fadeRoute(const MainScreen()),
             (route) => false,
           );
         } else {
@@ -377,7 +532,27 @@ class _OtpScreenState extends State<OtpScreen> {
 
   void _limpiarCampos() {
     for (final c in _controllers) c.clear();
-    _focusNodes[0].requestFocus();
+    setState(() {
+      _errorMessage = null;
+      _isLoading = false;
+    });
+  }
+
+  Future<void> _pedirNuevoCodigo() async {
+    // Bloquear clipboard para evitar el bucle de auto-pegado
+    _ignorarClipboard = true;
+    _limpiarCampos();
+    // Abrir Telegram para que el bot envíe un código nuevo
+    try {
+      await launchUrl(
+        Uri.parse('https://t.me/RestobkBot?start=login'),
+        mode: LaunchMode.externalApplication,
+      );
+    } catch (_) {}
+    // Después de 3 segundos volver a permitir el clipboard
+    await Future.delayed(const Duration(seconds: 3));
+    _ignorarClipboard = false;
+    if (mounted) _focusNodes[0].requestFocus();
   }
 
   @override
@@ -385,10 +560,10 @@ class _OtpScreenState extends State<OtpScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Подтверждение'),
-        backgroundColor: Colors.red,
+        backgroundColor: const Color(0xFFC62828),
         foregroundColor: Colors.white,
       ),
-      body: Padding(
+      body: SingleChildScrollView(
         padding: const EdgeInsets.all(32.0),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
@@ -467,7 +642,7 @@ class _OtpScreenState extends State<OtpScreen> {
                 child: ElevatedButton(
                   onPressed: _verificarCodigo,
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.red,
+                    backgroundColor: const Color(0xFFC62828),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(12),
                     ),
@@ -480,7 +655,7 @@ class _OtpScreenState extends State<OtpScreen> {
               ),
             const SizedBox(height: 20),
             TextButton(
-              onPressed: _limpiarCampos,
+              onPressed: _pedirNuevoCodigo,
               child: const Text(
                 'Получить новый код',
                 style: TextStyle(fontSize: 16, color: Colors.grey),
@@ -516,7 +691,7 @@ class _MainScreenState extends State<MainScreen> {
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: _currentIndex,
         onTap: (index) => setState(() => _currentIndex = index),
-        selectedItemColor: Colors.red,
+        selectedItemColor: const Color(0xFFC62828),
         unselectedItemColor: Colors.grey,
         type: BottomNavigationBarType.fixed,
         items: const [
@@ -539,68 +714,102 @@ class HomeScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: Colors.grey.shade50,
       body: SafeArea(
-        child: ListView.builder(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-          itemCount: restaurantes.length,
-          itemBuilder: (context, index) {
-            final rest = restaurantes[index];
-            return GestureDetector(
-              onTap: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) =>
-                        RestaurantDetailScreen(restaurant: rest),
-                  ),
-                );
-              },
-              child: Card(
-                margin: const EdgeInsets.only(bottom: 16),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(16),
-                ),
-                elevation: 4,
-                child: Column(
-                  children: [
-                    ClipRRect(
-                      borderRadius: const BorderRadius.vertical(
-                        top: Radius.circular(16),
-                      ),
-                      child: Image.asset(
-                        rest['foto']!,
-                        height: 180,
-                        width: double.infinity,
-                        fit: BoxFit.cover,
-                        errorBuilder: (context, error, stackTrace) {
-                          return Container(
-                            height: 180,
-                            color: Colors.grey.shade200,
-                            child: const Icon(
-                              Icons.restaurant,
-                              size: 60,
-                              color: Colors.grey,
-                            ),
-                          );
-                        },
-                      ),
-                    ),
-                    Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 12),
-                      child: Text(
-                        rest['nombre']!,
-                        style: const TextStyle(
-                          fontSize: 20,
-                          fontWeight: FontWeight.bold,
-                        ),
-                        textAlign: TextAlign.center,
-                      ),
-                    ),
-                  ],
-                ),
+        child: ListView(
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          children: [
+            const SizedBox(height: 24),
+            Text(
+              UsuarioActual.nombre.isNotEmpty
+                  ? 'Добро пожаловать,\n${UsuarioActual.nombre}!'
+                  : 'Добро пожаловать!',
+              style: const TextStyle(
+                fontSize: 26,
+                fontWeight: FontWeight.bold,
+                height: 1.3,
               ),
-            );
-          },
+            ),
+            const SizedBox(height: 6),
+            Text(
+              'Выберите ресторан для бронирования',
+              style: TextStyle(fontSize: 15, color: Colors.grey[600]),
+            ),
+            const SizedBox(height: 24),
+            ...restaurantes.map((rest) {
+              return GestureDetector(
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    _fadeRoute(RestaurantDetailScreen(restaurant: rest)),
+                  );
+                },
+                child: Container(
+                  margin: const EdgeInsets.only(bottom: 20),
+                  height: 210,
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(20),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.12),
+                        blurRadius: 12,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
+                  ),
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(20),
+                    child: Stack(
+                      fit: StackFit.expand,
+                      children: [
+                        Image.asset(
+                          rest['foto']!,
+                          fit: BoxFit.cover,
+                          errorBuilder: (context, error, stackTrace) {
+                            return Container(
+                              color: Colors.grey.shade200,
+                              child: const Icon(
+                                Icons.restaurant,
+                                size: 60,
+                                color: Colors.grey,
+                              ),
+                            );
+                          },
+                        ),
+                        Positioned(
+                          bottom: 0,
+                          left: 0,
+                          right: 0,
+                          child: Container(
+                            padding: const EdgeInsets.fromLTRB(16, 32, 16, 16),
+                            decoration: BoxDecoration(
+                              gradient: LinearGradient(
+                                begin: Alignment.bottomCenter,
+                                end: Alignment.topCenter,
+                                colors: [
+                                  Colors.black.withOpacity(0.75),
+                                  Colors.transparent,
+                                ],
+                              ),
+                            ),
+                            child: Text(
+                              rest['nombre']!,
+                              style: const TextStyle(
+                                fontSize: 20,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.white,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              );
+            }),
+            const SizedBox(height: 8),
+          ],
         ),
       ),
     );
@@ -612,6 +821,16 @@ class RestaurantDetailScreen extends StatelessWidget {
   final Map<String, String> restaurant;
 
   const RestaurantDetailScreen({super.key, required this.restaurant});
+
+  Future<void> _llamar() async {
+    final tel = restaurant['telefono']!.replaceAll(RegExp(r'[^\d+]'), '');
+    final uri = Uri.parse('tel:$tel');
+    try {
+      await launchUrl(uri);
+    } catch (e) {
+      debugPrint('Error al llamar: $e');
+    }
+  }
 
   Future<void> _openMap() async {
     final Uri url = Uri.parse(
@@ -629,7 +848,7 @@ class RestaurantDetailScreen extends StatelessWidget {
     return Scaffold(
       appBar: AppBar(
         title: Text(restaurant['nombre']!),
-        backgroundColor: Colors.red,
+        backgroundColor: const Color(0xFFC62828),
         foregroundColor: Colors.white,
       ),
       body: SingleChildScrollView(
@@ -665,64 +884,79 @@ class RestaurantDetailScreen extends StatelessWidget {
                       fontWeight: FontWeight.bold,
                     ),
                   ),
-                  const SizedBox(height: 40),
+                  const SizedBox(height: 16),
+                  Text(
+                    restaurant['descripcion'] ?? '',
+                    style: TextStyle(
+                      fontSize: 15,
+                      color: Colors.grey[700],
+                      height: 1.5,
+                    ),
+                  ),
+                  const SizedBox(height: 24),
                   Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                     children: [
-                      GestureDetector(
-                        onTap: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (context) => NuevaReservaScreen(
+                      Expanded(
+                        child: ElevatedButton.icon(
+                          onPressed: () {
+                            Navigator.push(
+                              context,
+                              _fadeRoute(NuevaReservaScreen(
                                 restaurante: restaurant['nombre']!,
-                              ),
+                              )),
+                            );
+                          },
+                          icon: const Icon(Icons.calendar_today,
+                              color: Colors.white),
+                          label: const Text(
+                            'Забронировать',
+                            style: TextStyle(
+                                fontSize: 15, color: Colors.white),
+                          ),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color(0xFFC62828),
+                            padding: const EdgeInsets.symmetric(vertical: 14),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
                             ),
-                          );
-                        },
-                        child: Column(
-                          children: [
-                            Icon(
-                              Icons.calendar_today,
-                              size: 48,
-                              color: Colors.red,
-                            ),
-                            const SizedBox(height: 12),
-                            const Text(
-                              'Забронировать',
-                              style: TextStyle(fontSize: 16),
-                            ),
-                          ],
+                            elevation: 2,
+                          ),
                         ),
                       ),
-                      GestureDetector(
-                        onTap: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (context) => MenuScreen(
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: OutlinedButton.icon(
+                          onPressed: () {
+                            Navigator.push(
+                              context,
+                              _fadeRoute(MenuScreen(
                                 restaurante: restaurant['nombre']!,
-                              ),
+                              )),
+                            );
+                          },
+                          icon: const Icon(Icons.restaurant_menu,
+                              color: Colors.red),
+                          label: const Text(
+                            'Меню',
+                            style: TextStyle(fontSize: 15, color: Colors.red),
+                          ),
+                          style: OutlinedButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(vertical: 14),
+                            side: const BorderSide(color: Colors.red),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
                             ),
-                          );
-                        },
-                        child: Column(
-                          children: [
-                            Icon(
-                              Icons.restaurant_menu,
-                              size: 48,
-                              color: Colors.red,
-                            ),
-                            const SizedBox(height: 12),
-                            const Text('Меню', style: TextStyle(fontSize: 16)),
-                          ],
+                          ),
                         ),
                       ),
                     ],
                   ),
                   const SizedBox(height: 60),
                   const Divider(color: Colors.grey, thickness: 1, height: 32),
-                  _buildInfoRow(Icons.phone, restaurant['telefono']!),
+                  GestureDetector(
+                    onTap: _llamar,
+                    child: _buildInfoRow(Icons.phone, restaurant['telefono']!),
+                  ),
                   const Divider(color: Colors.grey, thickness: 1, height: 32),
                   GestureDetector(
                     onTap: _openMap,
@@ -769,7 +1003,10 @@ class NuevaReservaScreen extends StatefulWidget {
 class _NuevaReservaScreenState extends State<NuevaReservaScreen> {
   DateTime? _selectedDate;
   String? _selectedHora;
+  String? _selectedHoraFin;
   int _personas = 2;
+  final TextEditingController _comentarioController = TextEditingController();
+  final TextEditingController _telefonoController = TextEditingController();
 
   final List<String> _horarios = [
     for (int h = 12; h <= 23; h++)
@@ -777,6 +1014,37 @@ class _NuevaReservaScreenState extends State<NuevaReservaScreen> {
         '${h.toString().padLeft(2, '0')}:${m.toString().padLeft(2, '0')}',
     '00:00',
   ];
+
+  List<String> get _horariosDisponibles {
+    if (_selectedDate == null) return _horarios;
+    final now = DateTime.now();
+    final isToday = _selectedDate!.year == now.year &&
+        _selectedDate!.month == now.month &&
+        _selectedDate!.day == now.day;
+    if (!isToday) return _horarios;
+    return _horarios.where((hora) {
+      final h = int.parse(hora.split(':')[0]);
+      final m = int.parse(hora.split(':')[1]);
+      if (h == 0) return true; // medianoche siempre válida
+      final slotTime = DateTime(now.year, now.month, now.day, h, m);
+      return slotTime.isAfter(now.add(const Duration(minutes: 10)));
+    }).toList();
+  }
+
+  List<String> get _horariosHoraFin {
+    if (_selectedHora == null) return _horariosDisponibles;
+    final base = _horariosDisponibles;
+    final idx = base.indexOf(_selectedHora!);
+    if (idx < 0 || idx >= base.length - 1) return base;
+    return base.sublist(idx + 1).take(4).toList(); // máx 4 × 30 min = 2 horas
+  }
+
+  @override
+  void dispose() {
+    _comentarioController.dispose();
+    _telefonoController.dispose();
+    super.dispose();
+  }
 
   Future<void> _selectDate(BuildContext context) async {
     final DateTime? picked = await showDatePicker(
@@ -787,37 +1055,132 @@ class _NuevaReservaScreenState extends State<NuevaReservaScreen> {
       locale: const Locale('ru', 'RU'),
     );
     if (picked != null && picked != _selectedDate) {
-      setState(() => _selectedDate = picked);
+      setState(() {
+        _selectedDate = picked;
+        _selectedHora = null;
+        _selectedHoraFin = null;
+      });
     }
   }
 
   Future<void> _confirmarReserva() async {
-    if (_selectedDate == null || _selectedHora == null) {
+    if (_selectedDate == null || _selectedHora == null || _selectedHoraFin == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Пожалуйста, выберите дату и время')),
+        const SnackBar(
+          content: Text('Пожалуйста, выберите дату, время прихода и ухода'),
+        ),
+      );
+      return;
+    }
+    final soloDigitos = _telefonoController.text.replaceAll(RegExp(r'[^0-9]'), '');
+    if (soloDigitos.length < 7) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Введите корректный номер телефона')),
       );
       return;
     }
 
-    reservas.add(
-      Reserva(
-        restaurante: widget.restaurante,
-        fecha:
-            '${_selectedDate!.day}.${_selectedDate!.month}.${_selectedDate!.year}',
-        hora: _selectedHora!,
-        personas: _personas,
+    final fecha =
+        '${_selectedDate!.day}.${_selectedDate!.month}.${_selectedDate!.year}';
+
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Подтвердить бронирование?'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _summaryRow(Icons.restaurant, widget.restaurante),
+            const SizedBox(height: 8),
+            _summaryRow(Icons.calendar_today, fecha),
+            const SizedBox(height: 8),
+            _summaryRow(
+                Icons.access_time, '$_selectedHora – $_selectedHoraFin'),
+            const SizedBox(height: 8),
+            _summaryRow(Icons.people, '$_personas чел.'),
+            const SizedBox(height: 8),
+            _summaryRow(Icons.phone, _telefonoController.text.trim()),
+            if (_comentarioController.text.trim().isNotEmpty) ...[
+              const SizedBox(height: 8),
+              _summaryRow(Icons.comment, _comentarioController.text.trim()),
+            ],
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Изменить'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, true),
+            style:
+                ElevatedButton.styleFrom(backgroundColor: const Color(0xFFC62828)),
+            child: const Text(
+              'Подтвердить',
+              style: TextStyle(color: Colors.white),
+            ),
+          ),
+        ],
       ),
     );
+
+    if (confirm != true) return;
+
+    final nuevaReserva = Reserva(
+      restaurante: widget.restaurante,
+      fecha: fecha,
+      hora: _selectedHora!,
+      horaFin: _selectedHoraFin!,
+      personas: _personas,
+      comentario: _comentarioController.text.trim(),
+      telefono: _telefonoController.text.trim(),
+    );
+    reservas.add(nuevaReserva);
     await ReservasStorage.guardar();
 
-    if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Бронь подтверждена (ожидает подтверждения)'),
-      ),
-    );
+    // Enviar reserva al backend para notificar al restaurante
+    try {
+      final response = await http.post(
+        Uri.parse('https://web-production-86f86.up.railway.app/reserva'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          'restaurante': nuevaReserva.restaurante,
+          'fecha':       nuevaReserva.fecha,
+          'hora':        nuevaReserva.hora,
+          'horaFin':     nuevaReserva.horaFin,
+          'personas':    nuevaReserva.personas,
+          'comentario':  nuevaReserva.comentario,
+          'telefono':    nuevaReserva.telefono,
+          'nombre':      UsuarioActual.nombre,
+          'telegram_id': UsuarioActual.telegramId,
+        }),
+      );
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        nuevaReserva.id = data['id'];
+        await ReservasStorage.guardar();
+      }
+    } catch (_) {
+      // Si falla el envío al backend, la reserva sigue guardada localmente
+    }
 
+    if (!mounted) return;
     Navigator.pop(context);
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Бронь отправлена! Ожидайте подтверждения.')),
+    );
+  }
+
+  Widget _summaryRow(IconData icon, String text) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Icon(icon, size: 18, color: Colors.red),
+        const SizedBox(width: 8),
+        Expanded(child: Text(text, style: const TextStyle(fontSize: 15))),
+      ],
+    );
   }
 
   @override
@@ -825,10 +1188,10 @@ class _NuevaReservaScreenState extends State<NuevaReservaScreen> {
     return Scaffold(
       appBar: AppBar(
         title: Text('Бронирование в ${widget.restaurante}'),
-        backgroundColor: Colors.red,
+        backgroundColor: const Color(0xFFC62828),
         foregroundColor: Colors.white,
       ),
-      body: Padding(
+      body: SingleChildScrollView(
         padding: const EdgeInsets.all(24.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -853,20 +1216,48 @@ class _NuevaReservaScreenState extends State<NuevaReservaScreen> {
               style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 8),
-            DropdownButtonFormField<String>(
-              value: _selectedHora,
-              hint: const Text('Выбрать время'),
-              items: _horarios.map((hora) {
-                return DropdownMenuItem<String>(value: hora, child: Text(hora));
-              }).toList(),
-              onChanged: (value) => setState(() => _selectedHora = value),
-              decoration: const InputDecoration(
-                border: OutlineInputBorder(),
-                contentPadding: EdgeInsets.symmetric(
-                  horizontal: 12,
-                  vertical: 16,
+            Row(
+              children: [
+                Expanded(
+                  child: DropdownButtonFormField<String>(
+                    value: _selectedHora,
+                    hint: const Text('С:'),
+                    items: _horariosDisponibles.map((hora) {
+                      return DropdownMenuItem<String>(
+                          value: hora, child: Text(hora));
+                    }).toList(),
+                    onChanged: (value) => setState(() {
+                      _selectedHora = value;
+                      _selectedHoraFin = null;
+                    }),
+                    decoration: const InputDecoration(
+                      border: OutlineInputBorder(),
+                      labelText: 'Приход',
+                      contentPadding: EdgeInsets.symmetric(
+                          horizontal: 12, vertical: 16),
+                    ),
+                  ),
                 ),
-              ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: DropdownButtonFormField<String>(
+                    value: _selectedHoraFin,
+                    hint: const Text('До:'),
+                    items: _horariosHoraFin.map((hora) {
+                      return DropdownMenuItem<String>(
+                          value: hora, child: Text(hora));
+                    }).toList(),
+                    onChanged: (value) =>
+                        setState(() => _selectedHoraFin = value),
+                    decoration: const InputDecoration(
+                      border: OutlineInputBorder(),
+                      labelText: 'Уход',
+                      contentPadding: EdgeInsets.symmetric(
+                          horizontal: 12, vertical: 16),
+                    ),
+                  ),
+                ),
+              ],
             ),
             const SizedBox(height: 24),
             const Text(
@@ -889,9 +1280,7 @@ class _NuevaReservaScreenState extends State<NuevaReservaScreen> {
                   child: Text(
                     '$_personas',
                     style: const TextStyle(
-                      fontSize: 24,
-                      fontWeight: FontWeight.bold,
-                    ),
+                        fontSize: 24, fontWeight: FontWeight.bold),
                   ),
                 ),
                 IconButton(
@@ -901,17 +1290,58 @@ class _NuevaReservaScreenState extends State<NuevaReservaScreen> {
                 ),
               ],
             ),
-            const SizedBox(height: 40),
+            const SizedBox(height: 24),
+            const Text(
+              'Номер телефона',
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 8),
+            TextField(
+              controller: _telefonoController,
+              keyboardType: TextInputType.phone,
+              maxLength: 15,
+              inputFormatters: [
+                FilteringTextInputFormatter.allow(RegExp(r'[0-9+\-\s]')),
+              ],
+              decoration: InputDecoration(
+                hintText: '+7 XXX XXX XX XX',
+                prefixIcon: const Icon(Icons.phone, color: Colors.red),
+                border: const OutlineInputBorder(),
+                contentPadding: const EdgeInsets.all(12),
+                hintStyle: TextStyle(color: Colors.grey[400]),
+                counterText: '',
+              ),
+            ),
+            const SizedBox(height: 20),
+            const Text(
+              'Комментарий',
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 8),
+            TextField(
+              controller: _comentarioController,
+              maxLines: 3,
+              decoration: InputDecoration(
+                hintText: 'Особые пожелания, повод, аллергии...',
+                border: const OutlineInputBorder(),
+                contentPadding: const EdgeInsets.all(12),
+                hintStyle: TextStyle(color: Colors.grey[400]),
+              ),
+            ),
+            const SizedBox(height: 32),
             SizedBox(
               width: double.infinity,
               child: ElevatedButton(
                 onPressed: _confirmarReserva,
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.red,
+                  backgroundColor: const Color(0xFFC62828),
                   padding: const EdgeInsets.symmetric(vertical: 16),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
                 ),
                 child: const Text(
-                  'Подтвердить бронирование',
+                  'Далее →',
                   style: TextStyle(fontSize: 18, color: Colors.white),
                 ),
               ),
@@ -937,7 +1367,7 @@ class MenuScreen extends StatelessWidget {
     return Scaffold(
       appBar: AppBar(
         title: Text('Меню - $restaurante'),
-        backgroundColor: Colors.red,
+        backgroundColor: const Color(0xFFC62828),
         foregroundColor: Colors.white,
       ),
       body: InteractiveViewer(
@@ -971,6 +1401,60 @@ class BookingsScreen extends StatefulWidget {
 }
 
 class _BookingsScreenState extends State<BookingsScreen> {
+  bool _actualizando = false;
+
+  // Colores y etiquetas según el estado
+  Color _colorEstado(String estado) {
+    switch (estado) {
+      case 'Подтверждено':
+        return Colors.green;
+      case 'Отклонено':
+        return Colors.red;
+      case 'Отменено':
+        return Colors.grey;
+      default:
+        return Colors.orange; // Ожидает подтверждения
+    }
+  }
+
+  IconData _iconoEstado(String estado) {
+    switch (estado) {
+      case 'Подтверждено':
+        return Icons.check_circle;
+      case 'Отклонено':
+        return Icons.cancel;
+      case 'Отменено':
+        return Icons.block;
+      default:
+        return Icons.schedule;
+    }
+  }
+
+  // Consulta el estado actualizado de cada reserva pendiente
+  Future<void> _actualizarEstados() async {
+    setState(() => _actualizando = true);
+    for (final reserva in reservas) {
+      if (reserva.id == null) continue;
+      if (reserva.estado == 'Отменено') continue;
+      try {
+        final response = await http.get(
+          Uri.parse('https://web-production-86f86.up.railway.app/estado?id=${reserva.id}'),
+        );
+        if (response.statusCode == 200) {
+          final data = jsonDecode(response.body);
+          final estadoBackend = data['estado'];
+          if (estadoBackend == 'confirmada') {
+            reserva.estado = 'Подтверждено';
+          } else if (estadoBackend == 'rechazada') {
+            reserva.estado = 'Отклонено';
+          }
+        }
+      } catch (_) {}
+    }
+    await ReservasStorage.guardar();
+    if (mounted) setState(() => _actualizando = false);
+  }
+
   Future<void> _cancelarReserva(int index) async {
     final confirm = await showDialog<bool>(
       context: context,
@@ -986,16 +1470,14 @@ class _BookingsScreenState extends State<BookingsScreen> {
           ),
           TextButton(
             onPressed: () => Navigator.pop(context, true),
-            child: const Text(
-              'Да, отменить',
-              style: TextStyle(color: Colors.red),
-            ),
+            child: const Text('Да, отменить',
+                style: TextStyle(color: Colors.red)),
           ),
         ],
       ),
     );
     if (confirm == true) {
-      setState(() => reservas.removeAt(index));
+      setState(() => reservas[index].estado = 'Отменено');
       await ReservasStorage.guardar();
     }
   }
@@ -1005,8 +1487,25 @@ class _BookingsScreenState extends State<BookingsScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Мои бронирования'),
-        backgroundColor: Colors.red,
+        backgroundColor: const Color(0xFFC62828),
         foregroundColor: Colors.white,
+        actions: [
+          _actualizando
+              ? const Padding(
+                  padding: EdgeInsets.all(14),
+                  child: SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(
+                        color: Colors.white, strokeWidth: 2),
+                  ),
+                )
+              : IconButton(
+                  icon: const Icon(Icons.refresh),
+                  tooltip: 'Обновить статусы',
+                  onPressed: _actualizarEstados,
+                ),
+        ],
       ),
       body: reservas.isEmpty
           ? const Center(
@@ -1020,27 +1519,73 @@ class _BookingsScreenState extends State<BookingsScreen> {
               itemCount: reservas.length,
               itemBuilder: (context, index) {
                 final reserva = reservas[index];
+                final color = _colorEstado(reserva.estado);
                 return Card(
                   margin: const EdgeInsets.only(bottom: 16),
-                  child: ListTile(
-                    leading: const Icon(
-                      Icons.book_online,
-                      color: Colors.red,
-                      size: 40,
-                    ),
-                    title: Text(
-                      reserva.restaurante,
-                      style: const TextStyle(fontWeight: FontWeight.bold),
-                    ),
-                    subtitle: Text(
-                      '${reserva.fecha} • ${reserva.hora} • ${reserva.personas} чел.\nСтатус: ${reserva.estado}',
-                    ),
-                    trailing: IconButton(
-                      icon: const Icon(
-                        Icons.cancel_outlined,
-                        color: Colors.red,
-                      ),
-                      onPressed: () => _cancelarReserva(index),
+                  child: Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Icon(Icons.book_online, color: Colors.red, size: 36),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                reserva.restaurante,
+                                style: const TextStyle(
+                                    fontWeight: FontWeight.bold, fontSize: 16),
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                '${reserva.fecha}  •  ${reserva.hora}${reserva.horaFin.isNotEmpty ? ' – ${reserva.horaFin}' : ''}  •  ${reserva.personas} чел.',
+                                style: const TextStyle(color: Colors.black54),
+                              ),
+                              if (reserva.comentario.isNotEmpty) ...[
+                                const SizedBox(height: 2),
+                                Text('💬 ${reserva.comentario}',
+                                    style: const TextStyle(color: Colors.black54)),
+                              ],
+                              const SizedBox(height: 8),
+                              // Chip de estado
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 10, vertical: 4),
+                                decoration: BoxDecoration(
+                                  color: color.withValues(alpha: 0.12),
+                                  borderRadius: BorderRadius.circular(20),
+                                  border: Border.all(color: color, width: 1),
+                                ),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Icon(_iconoEstado(reserva.estado),
+                                        size: 14, color: color),
+                                    const SizedBox(width: 4),
+                                    Text(
+                                      reserva.estado,
+                                      style: TextStyle(
+                                          color: color,
+                                          fontSize: 12,
+                                          fontWeight: FontWeight.w600),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        // Botón cancelar (solo si no está ya cancelado/rechazado)
+                        if (reserva.estado != 'Отменено' &&
+                            reserva.estado != 'Отклонено')
+                          IconButton(
+                            icon: const Icon(Icons.cancel_outlined,
+                                color: Colors.red),
+                            onPressed: () => _cancelarReserva(index),
+                          ),
+                      ],
                     ),
                   ),
                 );
@@ -1059,7 +1604,7 @@ class ProfileScreen extends StatelessWidget {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Профиль'),
-        backgroundColor: Colors.red,
+        backgroundColor: const Color(0xFFC62828),
         foregroundColor: Colors.white,
       ),
       body: SingleChildScrollView(
@@ -1117,13 +1662,9 @@ class ProfileScreen extends StatelessWidget {
               child: OutlinedButton.icon(
                 onPressed: () async {
                   await UsuarioActual.cerrarSesion();
-                  reservas.clear();
-                  await ReservasStorage.guardar();
                   Navigator.pushAndRemoveUntil(
                     context,
-                    MaterialPageRoute(
-                      builder: (context) => const LoginScreen(),
-                    ),
+                    _fadeRoute(const LoginScreen()),
                     (route) => false,
                   );
                 },
