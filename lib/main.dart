@@ -6,6 +6,8 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:sqflite/sqflite.dart';
+import 'package:path/path.dart' as p;
 
 // Transición suave con fade para todas las pantallas
 PageRouteBuilder<T> _fadeRoute<T>(Widget page) {
@@ -24,7 +26,8 @@ PageRouteBuilder<T> _fadeRoute<T>(Widget page) {
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await UsuarioActual.cargarSesion();
-  await ReservasStorage.cargar();
+  // READ: cargar todas las reservas desde SQLite al arrancar
+  reservas = await ReservasDB.getReservas();
   runApp(const MyApp());
 }
 
@@ -110,10 +113,7 @@ class MyApp extends StatelessWidget {
       ],
       supportedLocales: const [Locale('ru', 'RU'), Locale('en', 'US')],
       locale: const Locale('ru', 'RU'),
-      // Si hay sesión guardada, ir directo a MainScreen
-      home: UsuarioActual.nombre.isNotEmpty
-          ? const MainScreen()
-          : const LoginScreen(),
+      home: const SplashScreen(),
     );
   }
 }
@@ -185,6 +185,7 @@ final Map<String, String> menuImages = {
 
 // ─── MODELO RESERVA ───────────────────────────────────────────────────────────
 class Reserva {
+  int? localId;            // Clave primaria SQLite (asignada por la BD)
   final String restaurante;
   final String fecha;
   final String hora;
@@ -193,9 +194,10 @@ class Reserva {
   final String comentario;
   final String telefono;
   String estado;
-  String? id; // ID del backend para verificar estado
+  String? id;              // ID del backend Railway
 
   Reserva({
+    this.localId,
     required this.restaurante,
     required this.fecha,
     required this.hora,
@@ -207,44 +209,206 @@ class Reserva {
     this.id,
   });
 
-  Map<String, dynamic> toJson() => {
-        'restaurante': restaurante,
-        'fecha': fecha,
-        'hora': hora,
-        'horaFin': horaFin,
-        'personas': personas,
-        'comentario': comentario,
-        'telefono': telefono,
-        'estado': estado,
-        'id': id,
-      };
+  // Convierte la reserva a Map para INSERT/UPDATE en SQLite
+  Map<String, dynamic> toMap() {
+    final map = <String, dynamic>{
+      'restaurante': restaurante,
+      'fecha': fecha,
+      'hora': hora,
+      'horaFin': horaFin,
+      'personas': personas,
+      'comentario': comentario,
+      'telefono': telefono,
+      'estado': estado,
+      'backendId': id,
+    };
+    if (localId != null) map['localId'] = localId;
+    return map;
+  }
 
-  factory Reserva.fromJson(Map<String, dynamic> json) => Reserva(
-        restaurante: json['restaurante'],
-        fecha: json['fecha'],
-        hora: json['hora'],
-        horaFin: json['horaFin'] ?? '',
-        personas: json['personas'],
-        comentario: json['comentario'] ?? '',
-        telefono: json['telefono'] ?? '',
-        estado: json['estado'] ?? 'Ожидает подтверждения',
-        id: json['id'],
+  // Crea una Reserva desde una fila de SQLite
+  factory Reserva.fromMap(Map<String, dynamic> map) => Reserva(
+        localId: map['localId'] as int?,
+        restaurante: map['restaurante'] as String,
+        fecha: map['fecha'] as String,
+        hora: map['hora'] as String,
+        horaFin: (map['horaFin'] as String?) ?? '',
+        personas: map['personas'] as int,
+        comentario: (map['comentario'] as String?) ?? '',
+        telefono: (map['telefono'] as String?) ?? '',
+        estado: (map['estado'] as String?) ?? 'Ожидает подтверждения',
+        id: map['backendId'] as String?,
       );
 }
 
 List<Reserva> reservas = [];
 
-class ReservasStorage {
-  static Future<void> guardar() async {
-    final prefs = await SharedPreferences.getInstance();
-    final lista = reservas.map((r) => jsonEncode(r.toJson())).toList();
-    await prefs.setStringList('reservas', lista);
+// ─── BASE DE DATOS LOCAL (SQLite) ─────────────────────────────────────────────
+class ReservasDB {
+  static Database? _db;
+
+  static Future<Database> get _database async {
+    _db ??= await _initDB();
+    return _db!;
   }
 
-  static Future<void> cargar() async {
-    final prefs = await SharedPreferences.getInstance();
-    final lista = prefs.getStringList('reservas') ?? [];
-    reservas = lista.map((s) => Reserva.fromJson(jsonDecode(s))).toList();
+  static Future<Database> _initDB() async {
+    final dbPath = await getDatabasesPath();
+    final path = p.join(dbPath, 'restobook.db');
+    return openDatabase(
+      path,
+      version: 1,
+      onCreate: (db, version) async {
+        await db.execute('''
+          CREATE TABLE reservas (
+            localId     INTEGER PRIMARY KEY AUTOINCREMENT,
+            restaurante TEXT    NOT NULL,
+            fecha       TEXT    NOT NULL,
+            hora        TEXT    NOT NULL,
+            horaFin     TEXT    NOT NULL,
+            personas    INTEGER NOT NULL,
+            comentario  TEXT    DEFAULT '',
+            telefono    TEXT    DEFAULT '',
+            estado      TEXT    NOT NULL,
+            backendId   TEXT
+          )
+        ''');
+      },
+    );
+  }
+
+  // ── CREATE ── Inserta una reserva y devuelve su localId asignado
+  static Future<int> insertReserva(Reserva r) async {
+    final db = await _database;
+    return db.insert('reservas', r.toMap());
+  }
+
+  // ── READ ── Obtiene todas las reservas ordenadas por fecha de creación
+  static Future<List<Reserva>> getReservas() async {
+    final db = await _database;
+    final maps = await db.query('reservas', orderBy: 'localId ASC');
+    return maps.map(Reserva.fromMap).toList();
+  }
+
+  // ── UPDATE ── Actualiza el estado de una reserva
+  static Future<void> updateEstado(int localId, String estado) async {
+    final db = await _database;
+    await db.update(
+      'reservas',
+      {'estado': estado},
+      where: 'localId = ?',
+      whereArgs: [localId],
+    );
+  }
+
+  // ── UPDATE ── Guarda el backendId cuando el servidor responde
+  static Future<void> updateBackendId(int localId, String backendId) async {
+    final db = await _database;
+    await db.update(
+      'reservas',
+      {'backendId': backendId},
+      where: 'localId = ?',
+      whereArgs: [localId],
+    );
+  }
+
+  // ── DELETE ── Elimina permanentemente una reserva de la base de datos
+  static Future<void> deleteReserva(int localId) async {
+    final db = await _database;
+    await db.delete(
+      'reservas',
+      where: 'localId = ?',
+      whereArgs: [localId],
+    );
+  }
+}
+
+// ─── SPLASH SCREEN ────────────────────────────────────────────────────────────
+class SplashScreen extends StatefulWidget {
+  const SplashScreen({super.key});
+
+  @override
+  State<SplashScreen> createState() => _SplashScreenState();
+}
+
+class _SplashScreenState extends State<SplashScreen>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _ctrl;
+  late Animation<double> _fade;
+
+  @override
+  void initState() {
+    super.initState();
+    _ctrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 900),
+    );
+    _fade = CurvedAnimation(parent: _ctrl, curve: Curves.easeIn);
+    _ctrl.forward();
+    Future.delayed(const Duration(milliseconds: 2200), () {
+      if (!mounted) return;
+      Navigator.pushReplacement(
+        context,
+        _fadeRoute(
+          UsuarioActual.nombre.isNotEmpty
+              ? const MainScreen()
+              : const LoginScreen(),
+        ),
+      );
+    });
+  }
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: const Color(0xFF0B6E4F),
+      body: FadeTransition(
+        opacity: _fade,
+        child: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(24),
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.15),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(
+                  Icons.restaurant_menu,
+                  size: 80,
+                  color: Colors.white,
+                ),
+              ),
+              const SizedBox(height: 24),
+              Text(
+                'RestoBook',
+                style: GoogleFonts.poppins(
+                  fontSize: 44,
+                  fontWeight: FontWeight.w700,
+                  color: Colors.white,
+                  letterSpacing: 1,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'Бронирование столиков',
+                style: GoogleFonts.poppins(
+                  fontSize: 16,
+                  color: Colors.white.withValues(alpha: 0.8),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 }
 
@@ -724,16 +888,40 @@ class HomeScreen extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: 16),
           children: [
             const SizedBox(height: 24),
-            Text(
-              UsuarioActual.nombre.isNotEmpty
-                  ? 'Добро пожаловать,\n${UsuarioActual.nombre}!'
-                  : 'Добро пожаловать!',
-              style: const TextStyle(
-                fontSize: 26,
-                fontWeight: FontWeight.bold,
-                height: 1.3,
-              ),
-            ),
+            UsuarioActual.nombre.isNotEmpty
+                ? RichText(
+                    text: TextSpan(
+                      children: [
+                        TextSpan(
+                          text: 'Привет,\n',
+                          style: GoogleFonts.poppins(
+                            fontSize: 26,
+                            fontWeight: FontWeight.w500,
+                            color: const Color(0xFF2D2D2D),
+                            height: 1.3,
+                          ),
+                        ),
+                        TextSpan(
+                          text: '${UsuarioActual.nombre}! 👋',
+                          style: GoogleFonts.poppins(
+                            fontSize: 28,
+                            fontWeight: FontWeight.w700,
+                            color: const Color(0xFF0B6E4F),
+                            height: 1.3,
+                          ),
+                        ),
+                      ],
+                    ),
+                  )
+                : Text(
+                    'Добро пожаловать!',
+                    style: GoogleFonts.poppins(
+                      fontSize: 26,
+                      fontWeight: FontWeight.bold,
+                      color: const Color(0xFF1A1A1A),
+                      height: 1.3,
+                    ),
+                  ),
             const SizedBox(height: 6),
             Text(
               'Выберите ресторан для бронирования',
@@ -1149,8 +1337,10 @@ class _NuevaReservaScreenState extends State<NuevaReservaScreen> {
       comentario: _comentarioController.text.trim(),
       telefono: _telefonoController.text.trim(),
     );
+    // CREATE: insertar la nueva reserva en SQLite
+    final localId = await ReservasDB.insertReserva(nuevaReserva);
+    nuevaReserva.localId = localId;
     reservas.add(nuevaReserva);
-    await ReservasStorage.guardar();
 
     // Enviar reserva al backend para notificar al restaurante
     try {
@@ -1172,7 +1362,8 @@ class _NuevaReservaScreenState extends State<NuevaReservaScreen> {
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
         nuevaReserva.id = data['id'];
-        await ReservasStorage.guardar();
+        // UPDATE: guardar el backendId en SQLite
+        await ReservasDB.updateBackendId(localId, data['id']);
       }
     } catch (_) {
       // Si falla el envío al backend, la reserva sigue guardada localmente
@@ -1447,7 +1638,7 @@ class _BookingsScreenState extends State<BookingsScreen> {
   Future<void> _actualizarEstados() async {
     setState(() => _actualizando = true);
     for (final reserva in reservas) {
-      if (reserva.id == null) continue;
+      if (reserva.id == null || reserva.localId == null) continue;
       if (reserva.estado == 'Отменено') continue;
       try {
         final response = await http.get(
@@ -1456,15 +1647,20 @@ class _BookingsScreenState extends State<BookingsScreen> {
         if (response.statusCode == 200) {
           final data = jsonDecode(response.body);
           final estadoBackend = data['estado'];
+          String? nuevoEstado;
           if (estadoBackend == 'confirmada') {
-            reserva.estado = 'Подтверждено';
+            nuevoEstado = 'Подтверждено';
           } else if (estadoBackend == 'rechazada') {
-            reserva.estado = 'Отклонено';
+            nuevoEstado = 'Отклонено';
+          }
+          if (nuevoEstado != null && reserva.estado != nuevoEstado) {
+            reserva.estado = nuevoEstado;
+            // UPDATE: actualizar estado en SQLite
+            await ReservasDB.updateEstado(reserva.localId!, nuevoEstado);
           }
         }
       } catch (_) {}
     }
-    await ReservasStorage.guardar();
     if (mounted) setState(() => _actualizando = false);
   }
 
@@ -1489,14 +1685,167 @@ class _BookingsScreenState extends State<BookingsScreen> {
         ],
       ),
     );
-    if (confirm == true) {
+    if (confirm == true && reservas[index].localId != null) {
+      // UPDATE: marcar como cancelada en SQLite
+      await ReservasDB.updateEstado(reservas[index].localId!, 'Отменено');
       setState(() => reservas[index].estado = 'Отменено');
-      await ReservasStorage.guardar();
     }
+  }
+
+  Future<void> _eliminarReserva(int index) async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Удалить запись?'),
+        content: Text(
+          '${reservas[index].restaurante}\n${reservas[index].fecha} • ${reservas[index].hora}',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Нет'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Удалить',
+                style: TextStyle(color: Colors.red)),
+          ),
+        ],
+      ),
+    );
+    if (confirm == true && reservas[index].localId != null) {
+      // DELETE: eliminar permanentemente de SQLite
+      await ReservasDB.deleteReserva(reservas[index].localId!);
+      setState(() => reservas.removeAt(index));
+    }
+  }
+
+  bool _esPasada(Reserva reserva) {
+    try {
+      final partes = reserva.fecha.split('.');
+      final dia = int.parse(partes[0]);
+      final mes = int.parse(partes[1]);
+      final anio = int.parse(partes[2]);
+      final horaParts = reserva.hora.split(':');
+      final h = int.parse(horaParts[0]);
+      final m = int.parse(horaParts[1]);
+      return DateTime(anio, mes, dia, h, m).isBefore(DateTime.now());
+    } catch (_) {
+      return false;
+    }
+  }
+
+  Widget _sectionHeader(String titulo, IconData icono) {
+    return Padding(
+      padding: const EdgeInsets.only(top: 8, bottom: 10),
+      child: Row(
+        children: [
+          Icon(icono, size: 16, color: Colors.grey[500]),
+          const SizedBox(width: 6),
+          Text(
+            titulo,
+            style: GoogleFonts.poppins(
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+              color: Colors.grey[500],
+              letterSpacing: 1.2,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildReservaCard(Reserva reserva, int index, {bool showCancel = true, bool showDelete = false}) {
+    final color = _colorEstado(reserva.estado);
+    return Card(
+      margin: const EdgeInsets.only(bottom: 12),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Icon(Icons.book_online, color: const Color(0xFF0B6E4F), size: 36),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    reserva.restaurante,
+                    style: const TextStyle(
+                        fontWeight: FontWeight.bold, fontSize: 16),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    '${reserva.fecha}  •  ${reserva.hora}${reserva.horaFin.isNotEmpty ? ' – ${reserva.horaFin}' : ''}  •  ${reserva.personas} чел.',
+                    style: const TextStyle(color: Colors.black54),
+                  ),
+                  if (reserva.comentario.isNotEmpty) ...[
+                    const SizedBox(height: 2),
+                    Text('💬 ${reserva.comentario}',
+                        style: const TextStyle(color: Colors.black54)),
+                  ],
+                  const SizedBox(height: 8),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 10, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: color.withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(color: color, width: 1),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(_iconoEstado(reserva.estado),
+                            size: 14, color: color),
+                        const SizedBox(width: 4),
+                        Text(
+                          reserva.estado,
+                          style: TextStyle(
+                              color: color,
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            if (showDelete)
+              IconButton(
+                icon: const Icon(Icons.delete_outline, color: Colors.red),
+                tooltip: 'Удалить',
+                onPressed: () => _eliminarReserva(index),
+              )
+            else if (showCancel &&
+                reserva.estado != 'Отменено' &&
+                reserva.estado != 'Отклонено')
+              IconButton(
+                icon: const Icon(Icons.cancel_outlined, color: Colors.red),
+                onPressed: () => _cancelarReserva(index),
+              ),
+          ],
+        ),
+      ),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
+    final proximas = <MapEntry<int, Reserva>>[];
+    final historial = <MapEntry<int, Reserva>>[];
+    for (int i = 0; i < reservas.length; i++) {
+      final r = reservas[i];
+      if (!_esPasada(r) && r.estado != 'Отменено' && r.estado != 'Отклонено') {
+        proximas.add(MapEntry(i, r));
+      } else {
+        historial.add(MapEntry(i, r));
+      }
+    }
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('Мои бронирования'),
@@ -1527,82 +1876,20 @@ class _BookingsScreenState extends State<BookingsScreen> {
                 style: TextStyle(fontSize: 20, color: Colors.grey),
               ),
             )
-          : ListView.builder(
+          : ListView(
               padding: const EdgeInsets.all(16),
-              itemCount: reservas.length,
-              itemBuilder: (context, index) {
-                final reserva = reservas[index];
-                final color = _colorEstado(reserva.estado);
-                return Card(
-                  margin: const EdgeInsets.only(bottom: 16),
-                  child: Padding(
-                    padding: const EdgeInsets.all(16),
-                    child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Icon(Icons.book_online, color: const Color(0xFF0B6E4F), size: 36),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                reserva.restaurante,
-                                style: const TextStyle(
-                                    fontWeight: FontWeight.bold, fontSize: 16),
-                              ),
-                              const SizedBox(height: 4),
-                              Text(
-                                '${reserva.fecha}  •  ${reserva.hora}${reserva.horaFin.isNotEmpty ? ' – ${reserva.horaFin}' : ''}  •  ${reserva.personas} чел.',
-                                style: const TextStyle(color: Colors.black54),
-                              ),
-                              if (reserva.comentario.isNotEmpty) ...[
-                                const SizedBox(height: 2),
-                                Text('💬 ${reserva.comentario}',
-                                    style: const TextStyle(color: Colors.black54)),
-                              ],
-                              const SizedBox(height: 8),
-                              // Chip de estado
-                              Container(
-                                padding: const EdgeInsets.symmetric(
-                                    horizontal: 10, vertical: 4),
-                                decoration: BoxDecoration(
-                                  color: color.withValues(alpha: 0.12),
-                                  borderRadius: BorderRadius.circular(20),
-                                  border: Border.all(color: color, width: 1),
-                                ),
-                                child: Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    Icon(_iconoEstado(reserva.estado),
-                                        size: 14, color: color),
-                                    const SizedBox(width: 4),
-                                    Text(
-                                      reserva.estado,
-                                      style: TextStyle(
-                                          color: color,
-                                          fontSize: 12,
-                                          fontWeight: FontWeight.w600),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        // Botón cancelar (solo si no está ya cancelado/rechazado)
-                        if (reserva.estado != 'Отменено' &&
-                            reserva.estado != 'Отклонено')
-                          IconButton(
-                            icon: const Icon(Icons.cancel_outlined,
-                                color: Colors.red),
-                            onPressed: () => _cancelarReserva(index),
-                          ),
-                      ],
-                    ),
-                  ),
-                );
-              },
+              children: [
+                if (proximas.isNotEmpty) ...[
+                  _sectionHeader('ПРЕДСТОЯЩИЕ', Icons.upcoming),
+                  ...proximas.map((e) => _buildReservaCard(e.value, e.key)),
+                ],
+                if (historial.isNotEmpty) ...[
+                  if (proximas.isNotEmpty) const SizedBox(height: 8),
+                  _sectionHeader('ИСТОРИЯ', Icons.history),
+                  ...historial.map(
+                      (e) => _buildReservaCard(e.value, e.key, showCancel: false, showDelete: true)),
+                ],
+              ],
             ),
     );
   }
