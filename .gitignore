@@ -43,3 +43,10 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+
+# Archivos locales
+.claude/
+.metadata
+restobook.iml
+flutter_*.png
+flutter_*.log
