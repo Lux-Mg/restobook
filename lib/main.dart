@@ -599,7 +599,7 @@ class _OtpScreenState extends State<OtpScreen> {
   String? _errorMessage;
   bool _ignorarClipboard = false;
 
-  static const String botApiUrl = 'https://web-production-86f86.up.railway.app/verify';
+  static const String botApiUrl = 'https://web-production-c0840.up.railway.app/verify';
 
   @override
   void initState() {
@@ -1539,7 +1539,7 @@ class _NuevaReservaScreenState extends State<NuevaReservaScreen> {
     // Enviar reserva al backend para notificar al restaurante
     try {
       final response = await http.post(
-        Uri.parse('https://web-production-86f86.up.railway.app/reserva'),
+        Uri.parse('https://web-production-c0840.up.railway.app/reserva'),
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({
           'restaurante': nuevaReserva.restaurante,
@@ -1836,7 +1836,7 @@ class _BookingsScreenState extends State<BookingsScreen> {
       if (reserva.estado == 'Отменено') continue;
       try {
         final response = await http.get(
-          Uri.parse('https://web-production-86f86.up.railway.app/estado?id=${reserva.id}'),
+          Uri.parse('https://web-production-c0840.up.railway.app/estado?id=${reserva.id}'),
         );
         if (response.statusCode == 200) {
           final data = jsonDecode(response.body);

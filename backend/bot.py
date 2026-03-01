@@ -244,26 +244,26 @@ class VerifyHandler(BaseHTTPRequestHandler):
         self.wfile.write(body.encode("utf-8"))
 
 
-def iniciar_servidor():
-    servidor = HTTPServer(("0.0.0.0", SERVER_PORT), VerifyHandler)
-    print(f"🌐 Servidor HTTP escuchando en puerto {SERVER_PORT}...")
-    servidor.serve_forever()
+def iniciar_bot():
+    print("🤖 Bot RestoBook iniciando...")
+    app = Application.builder().token(BOT_TOKEN).build()
+    app.add_handler(CommandHandler("start", start))
+    app.add_handler(CallbackQueryHandler(on_callback))
+    print("✅ Bot listo. Esperando mensajes de Telegram...")
+    app.run_polling()
 
 # ─── MAIN ─────────────────────────────────────────────────────────────────────
 
 
 def main():
-    print("🤖 Bot RestoBook iniciando...")
+    # El bot corre en un hilo separado (no daemon, para que no muera)
+    hilo_bot = threading.Thread(target=iniciar_bot, daemon=False)
+    hilo_bot.start()
 
-    hilo_servidor = threading.Thread(target=iniciar_servidor, daemon=True)
-    hilo_servidor.start()
-
-    app = Application.builder().token(BOT_TOKEN).build()
-    app.add_handler(CommandHandler("start", start))
-    app.add_handler(CallbackQueryHandler(on_callback))
-
-    print("✅ Todo listo. Esperando mensajes de Telegram...")
-    app.run_polling()
+    # El servidor HTTP es el proceso principal
+    servidor = HTTPServer(("0.0.0.0", SERVER_PORT), VerifyHandler)
+    print(f"🌐 Servidor HTTP escuchando en puerto {SERVER_PORT}...")
+    servidor.serve_forever()
 
 
 if __name__ == "__main__":
